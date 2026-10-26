@@ -1,0 +1,18 @@
+[
+  {
+    "name": "LinkedIn leads",
+    "sheetId": "PASTE_GOOGLE_SHEET_ID_OF_THE_'lead generation'_SHEET",
+    "tab": "Sheet1",
+    "spreadsheetId": "linkedin-leads",
+    "source": "LinkedIn",
+    "workflow": "LinkedIn Lead Generation"
+  },
+  {
+    "name": "Google Maps scraper",
+    "sheetId": "PASTE_GOOGLE_SHEET_ID_OF_THE_'Google Scaper details'_SHEET",
+    "tab": "Sheet1",
+    "spreadsheetId": "google-maps-scraper",
+    "source": "Google Maps / GMB",
+    "workflow": "Google Maps Lead Generation"
+  }
+]
