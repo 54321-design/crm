@@ -12,6 +12,10 @@ const sha = (s) => crypto.createHash('sha1').update(s).digest('hex');
 
 // Sheets come from SHEETS_CONFIG_JSON (env, best for Vercel), backend/sheets.config.json, or SHEET_CSV_URL.
 // Each entry is either { csvUrl } (published CSV) or { sheetId, tab | gid } (private sheet shared with the service account).
+// Accepts a bare sheet ID or the full sheet URL (copying the URL avoids look-alike letter mistakes such as I and l).
+const idOf = (v) => { const m = /\/d\/([A-Za-z0-9_-]+)/.exec(String(v || '')); return m ? m[1] : (String(v || '').trim() || null); };
+const gidOf = (v) => { const m = /[#&?]gid=(\d+)/.exec(String(v || '')); return m ? m[1] : null; };
+
 function getSheets() {
   const file = process.env.SHEETS_CONFIG || path.join(__dirname, '../../sheets.config.json');
   let list = [];
@@ -20,8 +24,8 @@ function getSheets() {
   else if (process.env.SHEET_CSV_URL) list = [{ name: 'Sheet', csvUrl: process.env.SHEET_CSV_URL }];
   return list.filter((x) => (x.csvUrl && /^https?:\/\//.test(x.csvUrl)) || x.sheetId).map((x) => ({
     name: x.name || 'Sheet', url: x.csvUrl && /^https?:\/\//.test(x.csvUrl) ? x.csvUrl : null,
-    googleId: x.sheetId || null, tab: x.tab || null,
-    sid: x.spreadsheetId || x.sheetId || x.name || 'default', gid: String(x.gid || '0'),
+    googleId: x.sheetId ? idOf(x.sheetId) : null, tab: x.tab || null,
+    sid: x.spreadsheetId || idOf(x.sheetId) || x.name || 'default', gid: String(x.gid || gidOf(x.sheetId) || '0'),
     source: x.source || 'Other', workflow: x.workflow || null,
   }));
 }
