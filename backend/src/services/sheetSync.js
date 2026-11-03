@@ -117,8 +117,9 @@ function mapRow(r) {
   return out;
 }
 
-async function syncOne(sheet, trigger) {
-  const s = { scanned: 0, created: 0, updated: 0, duplicate: 0, unchanged: 0, errors: 0 };
+async function syncOne(sheet, trigger, deadline) {
+  const s = { scanned: 0, created: 0, updated: 0, duplicate: 0, unchanged: 0, errors: 0, deferred: 0 };
+  let imported = 0;
   const errors = [];
   let status = 'success';
   const [ins] = await pool.query(
@@ -128,6 +129,9 @@ async function syncOne(sheet, trigger) {
   try {
     const rows = await loadRows(sheet);
     const seen = new Set();
+    // One query for every known row instead of one per row (each round trip to a remote database is slow).
+    const [known] = await pool.query('SELECT row_key, content_hash FROM sheet_row_state WHERE spreadsheet_id = ? AND sheet_gid = ?', [sheet.sid, sheet.gid]);
+    const states = new Map(known.map((r) => [r.row_key, r.content_hash]));
 
     for (let i = 0; i < rows.length; i++) {
       s.scanned++;
@@ -142,10 +146,10 @@ async function syncOne(sheet, trigger) {
         seen.add(key);
 
         const hash = sha(JSON.stringify(row));
-        const [st] = await pool.query(
-          'SELECT content_hash FROM sheet_row_state WHERE spreadsheet_id = ? AND sheet_gid = ? AND row_key = ?',
-          [sheet.sid, sheet.gid, key]);
-        if (st[0] && st[0].content_hash === hash) { s.unchanged++; continue; } // already imported, nothing changed
+        if (states.get(key) === hash) { s.unchanged++; continue; } // already imported, nothing changed
+        // Serverless functions are killed after a fixed time. Stop in time; the next sync carries on from here.
+        if (imported > 0 && Date.now() > deadline) { s.deferred = rows.length - i; break; }
+        imported++;
 
         const result = await withTx(async (conn) => {
           const r = await upsertLead(conn, row, { origin: 'sheet', source: sheet.source, workflow: sheet.workflow, status: row.status });
@@ -162,6 +166,7 @@ async function syncOne(sheet, trigger) {
       }
     }
     if (s.errors) status = 'partial';
+    if (s.deferred) { status = 'partial'; errors.push({ message: `Time limit reached. ${s.deferred} rows are left and will be imported on the next sync.` }); }
   } catch (err) {
     status = 'failed';
     s.errors++;
@@ -194,12 +199,13 @@ async function runSync(trigger = 'schedule') {
   running = true;
   try {
     const results = [];
-    for (const sh of sheets) results.push(await syncOne(sh, trigger));
+    const deadline = Date.now() + (Number(process.env.SYNC_TIME_BUDGET_MS) || 40000);
+    for (const sh of sheets) results.push(await syncOne(sh, trigger, deadline));
     const sum = (k) => results.reduce((t, r) => t + r[k], 0);
     return {
       status: results.some((r) => r.status === 'failed') ? 'failed' : results.some((r) => r.status === 'partial') ? 'partial' : 'success',
       scanned: sum('scanned'), created: sum('created'), updated: sum('updated'), duplicate: sum('duplicate'),
-      unchanged: sum('unchanged'), errors: sum('errors'), sheets: results,
+      unchanged: sum('unchanged'), errors: sum('errors'), deferred: sum('deferred'), sheets: results,
     };
   } finally {
     running = false;

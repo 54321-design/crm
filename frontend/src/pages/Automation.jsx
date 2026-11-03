@@ -17,7 +17,7 @@ export default function Automation() {
   async function show(id) { setOpen(id); setDetail(null); try { setDetail((await api.get(`/workflows/${id}`)).data); } catch (e) { toast(e.message, 'err'); setOpen(null); } }
   async function syncNow() {
     setSyncing(true);
-    try { const r = (await api.post('/sync/sheet')).result; toast(`Sync finished: ${num(r.created ?? 0)} new leads`); sync.reload(); wf.reload(); }
+    try { const r = (await api.post('/sync/sheet')).result; toast(r.deferred ? `Imported ${num(r.created ?? 0)} leads. ${num(r.deferred)} rows are left, press Sync again.` : `Sync finished: ${num(r.created ?? 0)} new leads`); sync.reload(); wf.reload(); }
     catch (e) { toast(e.message, 'err'); }
     setSyncing(false);
   }
