@@ -56,8 +56,9 @@ export default function Outreach() {
   const [gen, setGen] = useState(false);
   const [sending, setSending] = useState(false);
   const [page, setPage] = useState(1);
+  const [onlyLi, setOnlyLi] = useState(true); // LinkedIn messages can only go to leads that have a LinkedIn profile
 
-  const leads = useFetch(() => (demo ? Promise.resolve({ data: DEMO_LEADS.filter((x) => `${x.person_name} ${x.company}`.toLowerCase().includes(q.toLowerCase())) }) : api.get(`/leads${qs({ q, limit: 8, sort: 'created_at' })}`)), [q, demo]);
+  const leads = useFetch(() => (demo ? Promise.resolve({ data: DEMO_LEADS.filter((x) => `${x.person_name} ${x.company}`.toLowerCase().includes(q.toLowerCase())) }) : api.get(`/leads${qs({ q, limit: 8, sort: 'created_at', source: onlyLi ? 'LinkedIn' : '' })}`)), [q, demo, onlyLi]);
   const lead = useFetch(() => (demo ? Promise.resolve({ data: DEMO_LEADS.find((x) => String(x.id) === leadId) || null }) : leadId ? api.get(`/leads/${leadId}`) : Promise.resolve(null)), [leadId, demo]);
   const hist = useFetch(() => (demo ? Promise.resolve(demoHistory(dh)) : api.get(`/outreach${qs({ page, limit: 10 })}`)), [page, demo, dh]);
   const l = lead.data?.data;
@@ -128,6 +129,7 @@ export default function Outreach() {
       <div className="grid g-out">
         <Card title="Choose a lead">
           <div className="search"><Search size={16} /><input placeholder="Search leads" value={term} onChange={(e) => setTerm(e.target.value)} aria-label="Search leads" /></div>
+          {!demo && <label className="remember" style={{ margin: '12px 0 0' }}><input type="checkbox" checked={onlyLi} onChange={(e) => setOnlyLi(e.target.checked)} />LinkedIn leads only</label>}
           <div className="pick">
             {leads.loading ? <Loading rows={5} /> : leads.error ? <ErrorBox message={leads.error} /> : !leads.data.data.length ? <Empty title="No leads found" /> : leads.data.data.map((x) => (
               <button key={x.id} className={String(x.id) === leadId ? 'on' : ''} onClick={() => setSp({ lead: x.id })}>
