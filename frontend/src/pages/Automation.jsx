@@ -3,6 +3,7 @@ import { RefreshCw, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { api } from '../api';
 import { PageHeader, Card, Modal, Loading, ErrorBox, Empty, useFetch, useToast, fmtDateTime, timeAgo, num } from '../ui';
 
+const errs = (v) => { try { const x = typeof v === 'string' ? JSON.parse(v) : v; return Array.isArray(x) ? x : []; } catch { return []; } };
 const WF = { running: ['Running', '#3B6FB6'], success: ['Healthy', '#1E7B63'], failed: ['Failed', '#A4483A'], inactive: ['No runs yet', '#7A8A86'] };
 
 export default function Automation() {
@@ -40,6 +41,21 @@ export default function Automation() {
           </div>
         )}
       </Card>
+
+      {s?.perSheet?.length > 0 && (
+        <Card title="Last result per sheet" className="mt" pad={false}>
+          <div className="tablewrap"><table>
+            <thead><tr><th>Sheet</th><th>Result</th><th>Rows read</th><th>New leads</th><th>Problem</th></tr></thead>
+            <tbody>{s.perSheet.map((r) => (
+              <tr key={r.id}>
+                <td><b>{r.sheet_name}</b></td>
+                <td><span className="badge" style={{ '--c': r.status === 'success' ? '#1E7B63' : r.status === 'failed' ? '#A4483A' : '#B7791F' }}>{r.status}</span></td>
+                <td className="num">{num(r.rows_scanned)}</td><td className="num">{num(r.new_leads)}</td>
+                <td style={{ color: 'var(--danger)', maxWidth: 420 }}>{errs(r.error_details)[0]?.message || ''}</td>
+              </tr>))}</tbody>
+          </table></div>
+        </Card>
+      )}
 
       <h2 style={{ fontSize: 16, margin: '26px 0 12px' }}>Workflows</h2>
       {wf.error ? <ErrorBox message={wf.error} onRetry={wf.reload} /> : !wf.data ? <Loading rows={4} /> : !wf.data.data.length ? <Empty title="No workflows yet" /> : (
