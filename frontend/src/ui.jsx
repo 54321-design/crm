@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { Component, createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { X, Check, AlertCircle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 export const APP_NAME = import.meta.env.VITE_APP_NAME || 'LeadDesk';
@@ -20,7 +20,21 @@ export function timeAgo(s) {
   if (sec < 86400 * 7) return `${Math.floor(sec / 86400)}d ago`;
   return fmtDate(s);
 }
-export const initials = (n = '?') => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+export const dayEndISO = () => { const d = new Date(); d.setHours(23, 59, 59, 999); return d.toISOString(); };
+export const pingTasks = () => window.dispatchEvent(new Event('crm:tasks'));
+export const toLocalInput = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+export function dueInfo(s, done) {
+  const d = parseDate(s), now = new Date();
+  if (!d) return { text: '-', tone: 'mute' };
+  const time = d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  if (done) return { text: fmtDateTime(s), tone: 'mute' };
+  const days = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+  if (d < now) return { text: `Overdue since ${days === 0 ? 'today' : days === -1 ? 'yesterday' : fmtDate(s)} ${time}`, tone: 'bad' };
+  if (days === 0) return { text: `Today ${time}`, tone: 'warn' };
+  if (days === 1) return { text: `Tomorrow ${time}`, tone: 'ok' };
+  return { text: `${fmtDate(s)} ${time}`, tone: 'ok' };
+}
+export const initials = (n) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
 
 /* ---------- data hook ---------- */
 export function useFetch(fn, deps = []) {
@@ -88,9 +102,14 @@ export const StatusBadge = ({ status }) => (
   <span className="badge" style={{ '--c': STATUS_COLOR[status] || '#7A8A86' }}>{status}</span>
 );
 
-export const Avatar = ({ name, size = 32 }) => (
-  <span className="avatar" style={{ width: size, height: size, fontSize: size * 0.38 }}>{initials(name)}</span>
-);
+const AV = [['#E4F1EC', '#165F4D'], ['#E7EEFA', '#2C5AA0'], ['#F3ECFB', '#5B3FA8'], ['#FBF1DE', '#8A5A0B'], ['#FBE9E6', '#9A3F31'], ['#E6F4F6', '#1F6A75']];
+export const Avatar = ({ name, size = 32 }) => {
+  name = name || '?'; // leads can have no name and no company
+  let h = 0;
+  for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const [bg, fg] = AV[h % AV.length];
+  return <span className="avatar" style={{ width: size, height: size, fontSize: size * 0.38, background: bg, color: fg }}>{initials(name)}</span>;
+};
 
 export function Delta({ value, previous, invert }) {
   if (previous == null || value == null || previous === 0) return <span className="delta flat">no prior data</span>;
@@ -153,3 +172,19 @@ export const ChartTip = ({ active, payload, label, unit = '' }) =>
       {payload.map((p) => <div key={p.dataKey}><i style={{ background: p.color || p.stroke || p.fill }} />{p.name}: {num(p.value)}{unit}</div>)}
     </div>
   ) : null;
+
+/* Shows a message instead of a blank page if a screen crashes. */
+export class ErrorBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="empty" style={{ margin: '80px auto', maxWidth: 480 }}>
+        <strong>Something went wrong on this page</strong>
+        <p>{String(this.state.error.message || this.state.error)}</p>
+        <button className="btn primary" onClick={() => window.location.assign('/')}>Reload</button>
+      </div>
+    );
+  }
+}
