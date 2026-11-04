@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, LineChart, Send, Workflow, UsersRound, History, LogOut, Menu } from 'lucide-react';
+import { LayoutDashboard, Users, LineChart, Send, Workflow, UsersRound, History, LogOut, Menu, MapPin } from 'lucide-react';
 import { useAuth } from './auth';
 import { APP_NAME, Avatar, Loading } from './ui';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Leads from './pages/Leads';
+import FindLeads from './pages/FindLeads';
 import LeadDetail from './pages/LeadDetail';
 import Analytics from './pages/Analytics';
 import Outreach from './pages/Outreach';
@@ -26,6 +27,7 @@ function Layout() {
         <nav className="nav">
           {item('/', LayoutDashboard, 'Dashboard')}
           {item('/leads', Users, 'Leads')}
+          {item('/find-leads', MapPin, 'Find Leads')}
           {item('/analytics', LineChart, 'Trends')}
           {item('/outreach', Send, 'Outreach')}
           {item('/activity', History, 'Activity')}
@@ -63,6 +65,7 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="leads" element={<Leads />} />
         <Route path="leads/:id" element={<LeadDetail />} />
+        <Route path="find-leads" element={<FindLeads />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="outreach" element={<Outreach />} />
         <Route path="activity" element={<Activity />} />
